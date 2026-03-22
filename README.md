@@ -1,29 +1,36 @@
-# 🎨 @howincodes/expo-dynamic-app-icon
+# @howincodes/expo-dynamic-app-icon
 
-Easily **change your app icon dynamically** in **Expo SDK 52**!
+Easily **change your app icon dynamically** in **Expo SDK 53+**!
 
-## 🚀 **What's New in v2:**
+## What's New in v3:
 
-✨ **Android icon change without app restart!**
-✨ Seamless icon updates while the app stays running
-✨ Improved stability and performance
+- **Expo SDK 53/54/55 support**
+- **Android crash fix** — no more unexpected app closures after icon change
+- **`setAppIcon(null)` fix** — resetting to default now works correctly on Android
+- **Proper error handling** — `setAppIcon` now returns `false` when it actually fails
+- **`setAppIcon` is now async** — returns a Promise
+- **Thread-safe Android** — no more race conditions on rapid icon changes
+- **Image path validation** — clear errors when icon files are missing
+- **Deep link preservation** — activity aliases now inherit all intent filters
+- **iOS private API fallback** — gracefully falls back to public API if private API unavailable
 
-## 🎁 **Features:**
+## Features:
 
-✅ Reset icon to default
-✅ Support for **round icons**
-✅ Different icons for **iOS and Android**
-✅ Dynamic icon variants for **iOS** (light, dark, tinted)
-✅ iOS icon update **with or without alert popup**
-✅ **Simple API** to get and set the app icon
+- Reset icon to default
+- Support for **round icons**
+- Different icons for **iOS and Android**
+- Dynamic icon variants for **iOS** (light, dark, tinted)
+- iOS icon update **with or without alert popup**
+- **Simple API** to get and set the app icon
+- **Android icon change without app restart**
 
-## Demo🚀
+## Demo
 
 ![dynamic-icon-demo-5](https://github.com/user-attachments/assets/3dced15a-8d4e-4eb9-b76c-4c7c8fc9f59a)
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```sh
 npx expo install @howincodes/expo-dynamic-app-icon
@@ -31,7 +38,7 @@ npx expo install @howincodes/expo-dynamic-app-icon
 
 ---
 
-## 🔧 Setup
+## Setup
 
 Add the plugin to your `app.json`:
 
@@ -56,7 +63,7 @@ Add the plugin to your `app.json`:
       },
       "legacyRed": {
         "ios": "./assets/ios_icon_red.png",
-        "android": "./assets/android_icon_red_legacy.png" // Legacy string format still supported
+        "android": "./assets/android_icon_red_legacy.png"
       },
       "dynamicTheme": {
         "ios": {
@@ -64,7 +71,6 @@ Add the plugin to your `app.json`:
           "dark": "./assets/ios_icon_themed_dark.png",
           "tinted": "./assets/ios_icon_themed_tinted.png"
         }
-        // Android can also use the adaptive format here if desired
       }
     }
   ]
@@ -72,11 +78,11 @@ Add the plugin to your `app.json`:
 ```
 
 **Note on Android Adaptive Icons:**
-For Android, you can now provide an object with `foregroundImage` (path to your foreground asset) and `backgroundColor` (hex string) to generate proper adaptive icons. If you provide a direct string path, it will be treated as a legacy icon.
+For Android, you can provide an object with `foregroundImage` (path to your foreground asset) and `backgroundColor` (hex string) to generate proper adaptive icons. If you provide a direct string path, it will be treated as a legacy icon.
 
 ---
 
-## 📜 Android Setup
+## Android Setup
 
 Run the following command:
 
@@ -122,31 +128,27 @@ Then, check if the following lines have been added to `AndroidManifest.xml`. The
 
 ---
 
-## 🚀 Usage
+## Usage
 
 ### **Set App Icon**
 
 ```typescript
 import { setAppIcon } from "@howincodes/expo-dynamic-app-icon";
 
-/**
- * Change app icon to 'red'
- */
-setAppIcon("red");
+// Change app icon to 'red' (returns a Promise in v3)
+const result = await setAppIcon("red");
 
-/**
- * Reset to default icon
- */
-setAppIcon(null);
+// Reset to default icon
+await setAppIcon(null);
 ```
 
-#### ✅ Available Parameters:
+#### Parameters:
 
 ```typescript
 setAppIcon(
   name: IconName | null,
   isInBackground?: boolean
-)
+): Promise<IconName | "DEFAULT" | false>
 ```
 
 | Parameter        | Type               | Default | Description                                                                                                                    |
@@ -154,7 +156,7 @@ setAppIcon(
 | `name`           | `IconName \| null` | `null`  | The icon name to switch to. Pass `null` to reset to the default icon.                                                          |
 | `isInBackground` | `boolean`          | `true`  | - `true`: Icon changes silently in the background (no alert on iOS).<br>- `false`: Immediate change, with system alert on iOS. |
 
-#### ✅ Returns:
+#### Returns (Promise):
 
 - `"DEFAULT"` if reset to the original icon.
 - The **new icon name** on success.
@@ -167,34 +169,62 @@ setAppIcon(
 ```typescript
 import { getAppIcon } from "@howincodes/expo-dynamic-app-icon";
 
-// Get the current app icon name
-const icon = getAppIcon();
+// Get the current app icon name (async in v3)
+const icon = await getAppIcon();
 console.log(icon); // "red" (or "DEFAULT" if not changed)
 ```
 
 ---
 
-### ⚠️ Notes:
+### Platform Behavior:
+
+- **iOS:** `await setAppIcon("dark")` resolves **after** the icon change completes (or fails). The return value accurately reflects success/failure.
+- **Android:** `await setAppIcon("dark")` resolves **immediately** after queuing the change. The actual icon switch happens when the app enters the background. This means the promise always resolves with the icon name, even if the change hasn't been applied yet.
+
+### Notes:
 
 - **Android limitations:**
   Android does **not** support icon changes while the app is running in the foreground.
   To work around this, the icon is changed when the app enters the **Pause state** (background).
 
-- ⚠️ **Pause state** can also trigger during events like permission dialogs.
+- **Pause state** can also trigger during events like permission dialogs.
   To avoid unwanted icon changes, a **5-second delay** is added to ensure the app is truly in the background.
 
 - To disable the delay and apply the icon change immediately (with the risk of it running during permission dialogs or other pause events), set:
 
   ```typescript
-  setAppIcon("red", false);
+  await setAppIcon("red", false);
   ```
 
   - On **iOS**, `isInBackground: false` triggers the system alert immediately.
   - On **Android**, it applies the icon change right away without waiting.
 
-## ☕ Support the Original Author
+---
 
-A huge shoutout to [outsung](https://github.com/outsung) for the original package! 🎉
+## Migration from v2 to v3
+
+### Breaking Changes:
+
+1. **`setAppIcon` and `getAppIcon` are now async** — wrap calls with `await`:
+   ```typescript
+   // v2
+   const result = setAppIcon("dark");
+   const icon = getAppIcon();
+
+   // v3
+   const result = await setAppIcon("dark");
+   const icon = await getAppIcon();
+   ```
+
+2. **Minimum Expo SDK is now 53** — update your project if on SDK 52 or below.
+
+3. **Error handling improved** — `setAppIcon` now returns `false` when the icon change actually fails (previously it returned the icon name even on failure).
+
+---
+
+## Support the Original Author
+
+A huge shoutout to [outsung](https://github.com/outsung) for the original package!
 
 If you find this useful, consider **buying him a coffee**:
 
@@ -204,8 +234,6 @@ If you find this useful, consider **buying him a coffee**:
 
 ---
 
-## 🌐 About Us
+## About Us
 
 This package is maintained by **[HowinCloud](https://howincloud.com/)** – delivering powerful cloud-based solutions for modern app development.
-
-🔥 **Enjoy building dynamic and customizable apps with Expo!** 🚀

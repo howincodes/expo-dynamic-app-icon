@@ -20,27 +20,27 @@ export default function App() {
       }}
     >
       <View style={{ marginBottom: 16 }}>
-        <Button title="get icon!" onPress={() => setIconName(getAppIcon())} />
+        <Button title="get icon!" onPress={async () => setIconName(await getAppIcon())} />
         <Text>{iconName || "Press Button!"}</Text>
       </View>
 
       <View style={{ marginBottom: 16 }}>
         <Button
           title="change default icon"
-          onPress={() => console.log(setAppIcon(null))}
+          onPress={async () => console.log(await setAppIcon(null))}
         />
       </View>
 
       <View style={{ marginBottom: 16 }}>
         <Button
           title="change light icon"
-          onPress={() => console.log(setAppIcon("light", false))}
+          onPress={async () => console.log(await setAppIcon("light", false))}
         />
       </View>
 
       <Button
         title="change dark icon"
-        onPress={() => console.log(setAppIcon("dark"))}
+        onPress={async () => console.log(await setAppIcon("dark"))}
       />
     </View>
   );

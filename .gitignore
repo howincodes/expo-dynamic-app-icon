@@ -6,6 +6,8 @@
 .vscode/
 jsconfig.json
 
+docs/
+
 # Xcode
 #
 build/

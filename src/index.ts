@@ -3,13 +3,13 @@ import { DynamicAppIconRegistry } from "./types";
 
 export type IconName = DynamicAppIconRegistry["IconName"];
 
-export function setAppIcon(
+export async function setAppIcon(
   name: IconName | null,
   isInBackground: boolean = true
-): IconName | "DEFAULT" | false {
+): Promise<IconName | "DEFAULT" | false> {
   return ExpoDynamicAppIconModule.setAppIcon(name, isInBackground);
 }
 
-export function getAppIcon(): IconName | "DEFAULT" {
+export async function getAppIcon(): Promise<IconName | "DEFAULT"> {
   return ExpoDynamicAppIconModule.getAppIcon();
 }

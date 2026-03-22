@@ -1,6 +1,6 @@
 {
   "name": "@howincodes/expo-dynamic-app-icon",
-  "version": "2.0.3",
+  "version": "3.0.0",
   "description": "Programmatically change the app icon in Expo.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -40,17 +40,19 @@
   "license": "MIT",
   "homepage": "https://github.com/howincodes/expo-dynamic-app-icon#readme",
   "dependencies": {
-    "expo-modules-core": "^2.1.1",
-    "@expo/image-utils": "^0.6.3",
+    "@expo/image-utils": "^0.7.0",
     "xcode": "^3.0.1"
   },
   "devDependencies": {
-    "@types/react": "^18.0.25",
-    "@types/react-native": "^0.70.6",
-    "expo-module-scripts": "^4.0.2"
+    "@expo/config": "*",
+    "@expo/config-plugins": "*",
+    "@types/react": "*",
+    "expo-module-scripts": "^4.0.0",
+    "expo-modules-core": "*"
   },
   "peerDependencies": {
-    "expo": "^52",
+    "expo": ">=53.0.0",
+    "expo-modules-core": "*",
     "react": "*",
     "react-native": "*"
   },

@@ -180,7 +180,7 @@ const withIconAndroidManifest: ConfigPlugin<Props> = (config, { icons }) => {
               "android:enabled": "false",
               "android:exported": "true",
               "android:icon": iconResourceName,
-              "android:label": mainActivity.$["android:label"] || "",
+              "android:label": mainActivity.$["android:label"] || mainApplication.$["android:label"] || config.name || "",
               "android:targetActivity": ".MainActivity",
               "android:roundIcon": roundIconResourceName,
             },

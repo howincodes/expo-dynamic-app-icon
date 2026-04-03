@@ -147,6 +147,7 @@ function validateImagePath(projectRoot: string, imagePath: string, iconKey: stri
 }
 
 const withIconAndroidManifest: ConfigPlugin<Props> = (config, { icons }) => {
+  const appName = config.name;
   return withAndroidManifest(config, (config) => {
     const mainApplication: any = getMainApplicationOrThrow(config.modResults);
     const mainActivity = getMainActivityOrThrow(config.modResults);
@@ -180,7 +181,7 @@ const withIconAndroidManifest: ConfigPlugin<Props> = (config, { icons }) => {
               "android:enabled": "false",
               "android:exported": "true",
               "android:icon": iconResourceName,
-              "android:label": mainActivity.$["android:label"] || mainApplication.$["android:label"] || config.name || "",
+              "android:label": mainActivity.$["android:label"] || mainApplication.$["android:label"] || appName || "",
               "android:targetActivity": ".MainActivity",
               "android:roundIcon": roundIconResourceName,
             },

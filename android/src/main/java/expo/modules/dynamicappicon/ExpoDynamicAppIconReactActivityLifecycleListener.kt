@@ -2,7 +2,6 @@ package expo.modules.dynamicappicon
 
 import android.app.Activity
 import android.content.ComponentName
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
@@ -50,20 +49,22 @@ class ExpoDynamicAppIconReactActivityLifecycleListener : ReactActivityLifecycleL
     override fun onDestroy(activity: Activity) {
         handler.removeCallbacks(backgroundCheckRunnable)
         // [C2] Copy state under lock, then do PM work outside the lock to avoid ANR
-        val (shouldChange, icon, pm, packageName) = synchronized(IconState) {
-            val result = IconChangeRequest(
-                IconState.shouldChangeIcon,
-                IconState.icon,
-                IconState.pm,
-                IconState.packageName
-            )
-            if (result.shouldChange) {
-                IconState.shouldChangeIcon = false
-            }
-            result
-        }
+        val (shouldChange, icon, pm, packageName) =
+                synchronized(IconState) {
+                    val result =
+                            IconChangeRequest(
+                                    IconState.shouldChangeIcon,
+                                    IconState.icon,
+                                    IconState.pm,
+                                    IconState.packageName
+                            )
+                    if (result.shouldChange) {
+                        IconState.shouldChangeIcon = false
+                    }
+                    result
+                }
         if (shouldChange) {
-            applyIconChange(activity, icon, pm, packageName)
+            IconChanger.applyIconChange(activity, icon, pm, packageName)
         }
         if (currentActivity === activity) {
             currentActivity = null
@@ -73,32 +74,43 @@ class ExpoDynamicAppIconReactActivityLifecycleListener : ReactActivityLifecycleL
     private fun onBackground() {
         currentActivity?.let { activity ->
             // [C2] Copy state under lock, then do PM work outside the lock to avoid ANR
-            val (shouldChange, icon, pm, packageName) = synchronized(IconState) {
-                val result = IconChangeRequest(
-                    IconState.shouldChangeIcon,
-                    IconState.icon,
-                    IconState.pm,
-                    IconState.packageName
-                )
-                if (result.shouldChange) {
-                    IconState.shouldChangeIcon = false
-                }
-                result
-            }
+            val (shouldChange, icon, pm, packageName) =
+                    synchronized(IconState) {
+                        val result =
+                                IconChangeRequest(
+                                        IconState.shouldChangeIcon,
+                                        IconState.icon,
+                                        IconState.pm,
+                                        IconState.packageName
+                                )
+                        if (result.shouldChange) {
+                            IconState.shouldChangeIcon = false
+                        }
+                        result
+                    }
             if (shouldChange) {
-                applyIconChange(activity, icon, pm, packageName)
+                IconChanger.applyIconChange(activity, icon, pm, packageName)
             }
         }
     }
 
     private data class IconChangeRequest(
-        val shouldChange: Boolean,
-        val icon: String,
-        val pm: PackageManager?,
-        val packageName: String
+            val shouldChange: Boolean,
+            val icon: String,
+            val pm: PackageManager?,
+            val packageName: String
     )
+}
 
-    private fun applyIconChange(activity: Activity, icon: String, pm: PackageManager?, packageName: String) {
+// Shared with ExpoDynamicAppIconModule so a non-deferred setAppIcon call can apply the change
+// inline.
+object IconChanger {
+    fun applyIconChange(
+            activity: Activity,
+            icon: String,
+            pm: PackageManager?,
+            packageName: String
+    ) {
         if (icon.isEmpty()) return
         val pmNonNull = pm ?: return
 
@@ -112,17 +124,19 @@ class ExpoDynamicAppIconReactActivityLifecycleListener : ReactActivityLifecycleL
         try {
             // IMPORTANT: Enable the target icon FIRST to prevent "app not installed" state
             pmNonNull.setComponentEnabledSetting(
-                newComponent,
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
+                    newComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
             )
             Log.i("IconChange", "Enabled new icon: $icon")
 
             // Then disable all other launcher activities
-            val packageInfo = pmNonNull.getPackageInfo(
-                packageName,
-                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
-            )
+            val packageInfo =
+                    pmNonNull.getPackageInfo(
+                            packageName,
+                            PackageManager.GET_ACTIVITIES or
+                                    PackageManager.MATCH_DISABLED_COMPONENTS
+                    )
 
             // [S5] Use startsWith for precise matching instead of contains
             val mainActivityPrefix = "$packageName.MainActivity"
@@ -130,9 +144,9 @@ class ExpoDynamicAppIconReactActivityLifecycleListener : ReactActivityLifecycleL
                 if (activityInfo.name.startsWith(mainActivityPrefix) && activityInfo.name != icon) {
                     try {
                         pmNonNull.setComponentEnabledSetting(
-                            ComponentName(packageName, activityInfo.name),
-                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                            PackageManager.DONT_KILL_APP
+                                ComponentName(packageName, activityInfo.name),
+                                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                                PackageManager.DONT_KILL_APP
                         )
                     } catch (e: Exception) {
                         Log.w("IconChange", "Failed to disable component: ${activityInfo.name}", e)
@@ -145,27 +159,31 @@ class ExpoDynamicAppIconReactActivityLifecycleListener : ReactActivityLifecycleL
         }
     }
 
-    private fun ensureAtLeastOneComponentEnabled(pm: PackageManager, packageName: String) {
+    fun ensureAtLeastOneComponentEnabled(pm: PackageManager, packageName: String) {
         try {
-            val packageInfo = pm.getPackageInfo(
-                packageName,
-                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
-            )
+            val packageInfo =
+                    pm.getPackageInfo(
+                            packageName,
+                            PackageManager.GET_ACTIVITIES or
+                                    PackageManager.MATCH_DISABLED_COMPONENTS
+                    )
 
             val mainActivityPrefix = "$packageName.MainActivity"
-            val hasEnabled = packageInfo.activities?.any { activityInfo ->
-                activityInfo.name.startsWith(mainActivityPrefix) &&
-                    pm.getComponentEnabledSetting(
-                        ComponentName(packageName, activityInfo.name)
-                    ) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            } ?: false
+            val hasEnabled =
+                    packageInfo.activities?.any { activityInfo ->
+                        activityInfo.name.startsWith(mainActivityPrefix) &&
+                                pm.getComponentEnabledSetting(
+                                        ComponentName(packageName, activityInfo.name)
+                                ) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                    }
+                            ?: false
 
             if (!hasEnabled) {
                 val mainComponent = ComponentName(packageName, "$packageName.MainActivity")
                 pm.setComponentEnabledSetting(
-                    mainComponent,
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                    PackageManager.DONT_KILL_APP
+                        mainComponent,
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP
                 )
                 Log.i("IconChange", "Fallback: re-enabled $packageName.MainActivity")
             }
@@ -174,12 +192,18 @@ class ExpoDynamicAppIconReactActivityLifecycleListener : ReactActivityLifecycleL
         }
     }
 
-    private fun doesComponentExist(pm: PackageManager, packageName: String, componentName: ComponentName): Boolean {
+    fun doesComponentExist(
+            pm: PackageManager,
+            packageName: String,
+            componentName: ComponentName
+    ): Boolean {
         return try {
-            val packageInfo = pm.getPackageInfo(
-                packageName,
-                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
-            )
+            val packageInfo =
+                    pm.getPackageInfo(
+                            packageName,
+                            PackageManager.GET_ACTIVITIES or
+                                    PackageManager.MATCH_DISABLED_COMPONENTS
+                    )
             packageInfo.activities?.any { it.name == componentName.className } == true
         } catch (e: Exception) {
             false

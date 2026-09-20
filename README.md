@@ -4,7 +4,7 @@ Easily **change your app icon dynamically** in **Expo SDK 53+**!
 
 ## What's New in v3:
 
-- **Expo SDK 53/54/55 support**
+- **Expo SDK 53+ compatibility**
 - **Android crash fix** — no more unexpected app closures after icon change
 - **`setAppIcon(null)` fix** — resetting to default now works correctly on Android
 - **Proper error handling** — `setAppIcon` now returns `false` when it actually fails
@@ -22,7 +22,7 @@ Easily **change your app icon dynamically** in **Expo SDK 53+**!
 - Dynamic icon variants for **iOS** (light, dark, tinted)
 - iOS icon update **with or without alert popup**
 - **Simple API** to get and set the app icon
-- **Android icon change without app restart**
+- **Android icon change via launcher alias switching** (may briefly reload the app task when the alias is swapped)
 
 ## Demo
 
@@ -179,25 +179,24 @@ console.log(icon); // "red" (or "DEFAULT" if not changed)
 ### Platform Behavior:
 
 - **iOS:** `await setAppIcon("dark")` resolves **after** the icon change completes (or fails). The return value accurately reflects success/failure.
-- **Android:** `await setAppIcon("dark")` resolves **immediately** after queuing the change. The actual icon switch happens when the app enters the background. This means the promise always resolves with the icon name, even if the change hasn't been applied yet.
+- **Android:** `await setAppIcon("dark")` resolves **immediately** after queuing the change. The actual icon switch happens by enabling a different launcher activity alias when the app is backgrounded or when `isInBackground` is set to `false`.
 
 ### Notes:
 
 - **Android limitations:**
-  Android does **not** support icon changes while the app is running in the foreground.
-  To work around this, the icon is changed when the app enters the **Pause state** (background).
+  Android does **not** update the launcher icon by replacing a bitmap in place while the app remains in the foreground. Instead, it swaps the enabled launcher alias. This can briefly reload or recreate the launcher task, which is expected Android behavior.
 
 - **Pause state** can also trigger during events like permission dialogs.
   To avoid unwanted icon changes, a **5-second delay** is added to ensure the app is truly in the background.
 
-- To disable the delay and apply the icon change immediately (with the risk of it running during permission dialogs or other pause events), set:
+- To disable the delay and apply the icon change immediately, set:
 
   ```typescript
   await setAppIcon("red", false);
   ```
 
   - On **iOS**, `isInBackground: false` triggers the system alert immediately.
-  - On **Android**, it applies the icon change right away without waiting.
+  - On **Android**, it switches the alias immediately; this may recreate the launcher task or briefly reload the app.
 
 ---
 

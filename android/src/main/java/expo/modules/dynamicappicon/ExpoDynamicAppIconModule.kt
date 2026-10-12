@@ -12,35 +12,43 @@ class ExpoDynamicAppIconModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("ExpoDynamicAppIcon")
 
-        // [C1] Keep as synchronous Function on Android — the icon change is deferred to
-        // onPause/onDestroy by design. The JS async wrapper resolves this immediately.
+        // [C1] Keep as synchronous Function on Android. When isInBackground is true (default),
+        // the icon change is deferred to onPause/onDestroy by design. When isInBackground is
+        // false, the change is applied inline here instead of waiting for the activity to pause.
         // On iOS, AsyncFunction is used because the icon change happens inline.
         Function("setAppIcon") { name: String?, isInBackground: Boolean? ->
             try {
                 val ctx = context
                 val pkgName = ctx.packageName
                 val pkgManager = currentActivity.packageManager
+                val activity = currentActivity
+                val shouldDefer = isInBackground ?: true
 
                 synchronized(IconState) {
                     IconState.packageName = pkgName
                     IconState.pm = pkgManager
-                    IconState.isInBackground = isInBackground ?: true
-                    IconState.shouldChangeIcon = true
+                    IconState.isInBackground = shouldDefer
+                    IconState.shouldChangeIcon = false
 
-                    val targetIcon = if (name == null) {
-                        "$pkgName.MainActivity"
-                    } else {
-                        "$pkgName.MainActivity$name"
-                    }
+                    val targetIcon =
+                            if (name == null) {
+                                "$pkgName.MainActivity"
+                            } else {
+                                "$pkgName.MainActivity$name"
+                            }
 
                     // Skip if already set to the same icon
                     val currentEnabled = getEnabledLauncherActivity(pkgManager, pkgName)
                     if (currentEnabled == targetIcon) {
-                        IconState.shouldChangeIcon = false
                         return@Function if (name == null) "DEFAULT" else name
                     }
 
-                    IconState.icon = targetIcon
+                    if (shouldDefer) {
+                        IconState.icon = targetIcon
+                        IconState.shouldChangeIcon = true
+                    } else {
+                        IconChanger.applyIconChange(activity, targetIcon, pkgManager, pkgName)
+                    }
                 }
 
                 return@Function if (name == null) "DEFAULT" else name
@@ -74,34 +82,40 @@ class ExpoDynamicAppIconModule : Module() {
     }
 
     /**
-     * Query the PackageManager for the currently enabled launcher activity.
-     * This reflects actual system state, not module-internal state.
+     * Query the PackageManager for the currently enabled launcher activity. This reflects actual
+     * system state, not module-internal state.
      */
     private fun getEnabledLauncherActivity(pm: PackageManager, packageName: String): String {
         return try {
-            val packageInfo = pm.getPackageInfo(
-                packageName,
-                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
-            )
+            val packageInfo =
+                    pm.getPackageInfo(
+                            packageName,
+                            PackageManager.GET_ACTIVITIES or
+                                    PackageManager.MATCH_DISABLED_COMPONENTS
+                    )
             // [I3] Prefer explicitly enabled components over default-enabled ones
             val mainActivityPrefix = "$packageName.MainActivity"
-            val explicitlyEnabled = packageInfo.activities?.firstOrNull { activityInfo ->
-                val componentName = ComponentName(packageName, activityInfo.name)
-                val state = pm.getComponentEnabledSetting(componentName)
-                state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED &&
-                    activityInfo.name.startsWith(mainActivityPrefix)
-            }
+            val explicitlyEnabled =
+                    packageInfo.activities?.firstOrNull { activityInfo ->
+                        val componentName = ComponentName(packageName, activityInfo.name)
+                        val state = pm.getComponentEnabledSetting(componentName)
+                        state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED &&
+                                activityInfo.name.startsWith(mainActivityPrefix)
+                    }
             if (explicitlyEnabled != null) {
                 return explicitlyEnabled.name
             }
             // Fall back to default-enabled activities
-            packageInfo.activities?.firstOrNull { activityInfo ->
-                val componentName = ComponentName(packageName, activityInfo.name)
-                val state = pm.getComponentEnabledSetting(componentName)
-                state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT &&
-                    activityInfo.enabled &&
-                    activityInfo.name.startsWith(mainActivityPrefix)
-            }?.name ?: "$packageName.MainActivity"
+            packageInfo.activities
+                    ?.firstOrNull { activityInfo ->
+                        val componentName = ComponentName(packageName, activityInfo.name)
+                        val state = pm.getComponentEnabledSetting(componentName)
+                        state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT &&
+                                activityInfo.enabled &&
+                                activityInfo.name.startsWith(mainActivityPrefix)
+                    }
+                    ?.name
+                    ?: "$packageName.MainActivity"
         } catch (e: Exception) {
             "$packageName.MainActivity"
         }

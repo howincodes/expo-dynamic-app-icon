@@ -199,6 +199,40 @@ console.log(icon); // "red" (or "DEFAULT" if not changed)
   - On **iOS**, `isInBackground: false` triggers the system alert immediately.
   - On **Android**, it applies the icon change right away without waiting.
 
+- **iOS silent change (`isInBackground: true`):**
+  The alert-free change relies on a private UIKit API. If it is unavailable, the module falls back to the public `setAlternateIconName` API, which **always shows the system alert**. Apple may change this behavior in newer iOS releases, so treat the silent change as best-effort.
+
+---
+
+## Android: Notifications (Notifee)
+
+When a non-default icon is active, `MainActivity` is disabled and the launcher entry is an `<activity-alias>`. Libraries that open the app through an **explicit activity class** (such as Notifee's `pressAction.launchActivity`) then fail, so tapping a notification does nothing.
+
+This package ships a small, always-enabled trampoline activity that forwards to whichever icon is currently active. Point Notifee at it:
+
+```typescript
+await notifee.displayNotification({
+  title: "Hello",
+  android: {
+    channelId: "default",
+    pressAction: {
+      id: "default",
+      launchActivity: "expo.modules.dynamicappicon.NotificationLauncherActivity",
+    },
+  },
+});
+```
+
+Notification extras and data are forwarded, so `getInitialNotification()` / `onForegroundEvent` keep working. No extra setup is required; the activity is merged into your manifest automatically and never appears in the launcher.
+
+---
+
+## Troubleshooting
+
+### `expo-doctor` warns about `expo-modules-core`
+
+`expo-modules-core` is provided by the `expo` package, so you don't need to install it directly. This package declares it as an **optional** peer dependency, so `expo-doctor` no longer asks you to install it. If you previously added it to your `package.json`, you can remove it.
+
 ---
 
 ## Migration from v2 to v3

@@ -1,2 +1,18 @@
-<manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!--
+      Stable, always-enabled entry point for notification taps (e.g. Notifee `launchActivity`).
+      When a non-default icon is active, MainActivity is disabled and the enabled launcher entry is an
+      <activity-alias>, which is not a real class. This activity forwards to whichever launcher entry is
+      currently enabled. It has no LAUNCHER intent-filter, so it never appears in the app drawer.
+    -->
+    <activity
+      android:name="expo.modules.dynamicappicon.NotificationLauncherActivity"
+      android:enabled="true"
+      android:exported="false"
+      android:excludeFromRecents="true"
+      android:noHistory="true"
+      android:taskAffinity=""
+      android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+  </application>
 </manifest>
